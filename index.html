@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bitácora Comercial — Prototipo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1E2A28;
+    --paper:#EDE7DA;
+    --paper-2:#E3DCC8;
+    --card:#F7F4EB;
+    --rec:#D65A2C;
+    --route:#2F6F62;
+    --route-soft:#DCE8E4;
+    --gold:#A87C2E;
+    --risk:#B23A32;
+    --muted:#6B6255;
+    --line: rgba(30,42,40,0.14);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Inter',sans-serif;
+    background:
+      radial-gradient(circle at 15% 10%, #E9E2CF 0%, transparent 45%),
+      radial-gradient(circle at 85% 90%, #DCE3D6 0%, transparent 50%),
+      #DFD8C4;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:32px 16px 60px;
+    color:var(--ink);
+  }
+  .lede{
+    max-width:430px;
+    width:100%;
+    margin-bottom:18px;
+  }
+  .lede .eyebrow{
+    font-family:'Space Grotesk',monospace;
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin:0 0 4px;
+  }
+  .lede h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:22px;
+    font-weight:600;
+    margin:0 0 4px;
+    letter-spacing:-.01em;
+  }
+  .lede p{
+    font-size:13px;
+    color:var(--muted);
+    margin:0;
+    line-height:1.5;
+  }
+
+  .phone{
+    width:100%;
+    max-width:430px;
+    background:var(--paper);
+    border-radius:34px;
+    border:1px solid var(--line);
+    box-shadow:0 30px 60px -20px rgba(30,42,40,.35), 0 2px 0 rgba(255,255,255,.5) inset;
+    padding:14px;
+    position:relative;
+  }
+  .notch{
+    width:90px;height:5px;background:rgba(30,42,40,.18);
+    border-radius:4px;margin:0 auto 12px;
+  }
+  .screen{
+    background:var(--card);
+    border-radius:24px;
+    padding:18px 16px 22px;
+    min-height:560px;
+    overflow:hidden;
+  }
+
+  .push{
+    background:var(--ink);
+    color:var(--paper);
+    border-radius:16px;
+    padding:12px 14px;
+    display:flex;
+    gap:10px;
+    align-items:flex-start;
+    margin-bottom:18px;
+  }
+  .push .pin{font-size:16px;line-height:1;}
+  .push .txt{font-size:12.5px;line-height:1.45;}
+  .push .txt b{font-weight:600;}
+  .push .time{font-size:10px;opacity:.55;margin-top:2px;font-family:'Space Grotesk',monospace;}
+
+  .rec-zone{
+    text-align:center;
+    padding:10px 0 6px;
+  }
+  .mic-btn{
+    width:88px;height:88px;border-radius:50%;
+    border:none;
+    background:var(--route);
+    color:var(--paper);
+    font-size:30px;
+    cursor:pointer;
+    position:relative;
+    box-shadow:0 10px 24px -8px rgba(47,111,98,.55);
+    transition:background .2s, transform .15s;
+  }
+  .mic-btn:active{transform:scale(.96);}
+  .mic-btn.recording{background:var(--rec); box-shadow:0 10px 24px -8px rgba(214,90,44,.6);}
+  .mic-btn.recording::after{
+    content:'';
+    position:absolute; inset:-10px;
+    border-radius:50%;
+    border:2px solid var(--rec);
+    animation:pulse 1.4s ease-out infinite;
+  }
+  @keyframes pulse{
+    0%{transform:scale(.9); opacity:.8;}
+    100%{transform:scale(1.35); opacity:0;}
+  }
+  .mic-label{
+    font-family:'Space Grotesk',monospace;
+    font-size:11px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin-top:10px;
+  }
+
+  .waveform{
+    display:flex; gap:3px; justify-content:center; align-items:flex-end;
+    height:26px; margin-top:10px; opacity:0;
+    transition:opacity .2s;
+  }
+  .waveform.active{opacity:1;}
+  .waveform span{
+    width:3px; background:var(--rec); border-radius:2px;
+    animation:bar 1s ease-in-out infinite;
+  }
+  @keyframes bar{
+    0%,100%{height:5px;} 50%{height:22px;}
+  }
+
+  .transcript-box{
+    margin-top:16px;
+    background:var(--paper-2);
+    border-radius:12px;
+    padding:12px 13px;
+    font-size:13px;
+    line-height:1.55;
+    min-height:56px;
+    color:var(--ink);
+  }
+  .transcript-box.placeholder{color:var(--muted); font-style:italic;}
+
+  .manual-toggle{
+    font-size:11.5px;
+    color:var(--route);
+    background:none; border:none;
+    cursor:pointer;
+    text-decoration:underline;
+    padding:8px 0 0;
+    font-family:'Inter',sans-serif;
+  }
+  .manual-area{
+    display:none;
+    margin-top:8px;
+  }
+  .manual-area.open{display:block;}
+  .manual-area textarea{
+    width:100%;
+    border-radius:12px;
+    border:1px solid var(--line);
+    background:var(--card);
+    padding:10px 12px;
+    font-family:'Inter',sans-serif;
+    font-size:12.5px;
+    min-height:70px;
+    resize:vertical;
+  }
+
+  .primary-btn{
+    width:100%;
+    margin-top:14px;
+    background:var(--ink);
+    color:var(--paper);
+    border:none;
+    border-radius:12px;
+    padding:13px;
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:600;
+    font-size:13.5px;
+    cursor:pointer;
+    letter-spacing:.01em;
+  }
+  .primary-btn:disabled{opacity:.45; cursor:default;}
+  .primary-btn.ghost{
+    background:transparent;
+    border:1px solid var(--ink);
+    color:var(--ink);
+  }
+
+  .note-fallback{
+    font-size:10.5px;
+    color:var(--muted);
+    margin-top:6px;
+    line-height:1.4;
+  }
+
+  /* ---- opportunity card ---- */
+  .opp-card{
+    display:none;
+    margin-top:20px;
+    border-top:1px dashed var(--line);
+    padding-top:16px;
+  }
+  .opp-card.show{display:block;}
+  .opp-card h3{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:14px;
+    margin:0 0 12px;
+  }
+  .field-row{
+    display:flex; gap:8px; margin-bottom:8px;
+  }
+  .field{
+    flex:1; display:flex; flex-direction:column; gap:3px;
+  }
+  .field label{
+    font-size:9.5px; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--muted); font-family:'Space Grotesk',monospace;
+  }
+  .field input, .field select{
+    border:1px solid var(--line);
+    background:var(--card);
+    border-radius:8px;
+    padding:7px 8px;
+    font-size:12.5px;
+    font-family:'Inter',sans-serif;
+    color:var(--ink);
+  }
+
+  .route-stepper{
+    display:flex;
+    justify-content:space-between;
+    margin:14px 0 6px;
+    position:relative;
+  }
+  .route-stepper::before{
+    content:'';
+    position:absolute; top:9px; left:8px; right:8px; height:2px;
+    background:var(--line); z-index:0;
+  }
+  .route-step{
+    position:relative; z-index:1;
+    display:flex; flex-direction:column; align-items:center; gap:5px;
+    flex:1; cursor:pointer; background:none; border:none;
+  }
+  .route-dot{
+    width:18px; height:18px; border-radius:50%;
+    background:var(--card); border:2px solid var(--line);
+  }
+  .route-step.done .route-dot{background:var(--route); border-color:var(--route);}
+  .route-step.current .route-dot{background:var(--rec); border-color:var(--rec);}
+  .route-step span{
+    font-size:8.5px; text-align:center; color:var(--muted);
+    font-family:'Space Grotesk',monospace; letter-spacing:.02em;
+    max-width:52px; line-height:1.2;
+  }
+  .route-step.current span{color:var(--ink); font-weight:600;}
+
+  .score-row{
+    display:flex; align-items:center; gap:10px;
+    background:var(--paper-2); border-radius:10px;
+    padding:9px 11px; margin:12px 0;
+  }
+  .score-num{
+    font-family:'Space Grotesk',monospace; font-size:20px; font-weight:600;
+    color:var(--gold);
+  }
+  .score-txt{font-size:10.5px; color:var(--muted); line-height:1.3;}
+
+  .list-block{margin-top:10px;}
+  .list-block h4{
+    font-size:10px; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--muted); margin:0 0 6px; font-family:'Space Grotesk',monospace;
+  }
+  .list-block ul{margin:0; padding-left:16px; font-size:12px; line-height:1.6;}
+  .list-block.alerts ul{color:var(--risk);}
+  .list-block.alerts.empty ul{color:var(--muted); font-style:italic;}
+
+  .resumen-box{
+    font-size:12px; line-height:1.55; color:var(--ink);
+    background:var(--card); border-left:3px solid var(--route);
+    padding:9px 11px; border-radius:0 8px 8px 0; margin-top:10px;
+  }
+
+  .repregunta-item{
+    margin-bottom:9px;
+  }
+  .repregunta-item .rq-tag{
+    display:inline-block; font-size:8.5px; font-family:'Space Grotesk',monospace;
+    text-transform:uppercase; letter-spacing:.04em; color:var(--route);
+    background:var(--route-soft); padding:2px 7px; border-radius:20px; margin-bottom:4px;
+  }
+  .repregunta-item .rq-q{
+    font-size:12px; margin:3px 0 5px; line-height:1.4;
+  }
+  .repregunta-item input{
+    width:100%; border:1px solid var(--line); background:var(--card);
+    border-radius:8px; padding:7px 9px; font-size:12px; font-family:'Inter',sans-serif;
+  }
+
+  .loading-line{
+    font-family:'Space Grotesk',monospace; font-size:11.5px;
+    color:var(--muted); text-align:center; margin-top:14px; display:none;
+  }
+  .loading-line.show{display:block;}
+
+  /* ---- pipeline ---- */
+  .pipeline{
+    max-width:430px; width:100%; margin-top:26px;
+  }
+  .pipeline-head{
+    display:flex; justify-content:space-between; align-items:flex-end;
+    margin-bottom:12px;
+  }
+  .pipeline-head h2{
+    font-family:'Space Grotesk',sans-serif; font-size:15px; margin:0;
+  }
+  .pipeline-total{
+    font-family:'Space Grotesk',monospace; font-size:17px; color:var(--gold); font-weight:600;
+  }
+  .pipeline-total span{display:block; font-size:9px; color:var(--muted); font-weight:400; letter-spacing:.05em;}
+
+  .donut-row{
+    display:flex; align-items:center; gap:16px;
+    background:var(--card); border:1px solid var(--line);
+    border-radius:14px; padding:14px; margin-bottom:12px;
+  }
+  .legend{font-size:11px; line-height:1.9;}
+  .legend .dot{display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px;}
+
+  .stat-grid{
+    display:grid; grid-template-columns:repeat(2,1fr); gap:8px;
+    margin-bottom:14px;
+  }
+  .stat-card{
+    background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:10px 8px;
+  }
+  .stat-card .num{
+    font-family:'Space Grotesk',monospace; font-size:16px; font-weight:600; color:var(--ink);
+    line-height:1.1;
+  }
+  .stat-card.gold .num{color:var(--gold);}
+  .stat-card .lbl{
+    font-size:8.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em;
+    margin-top:4px; line-height:1.3; font-family:'Space Grotesk',monospace;
+  }
+
+  .view-switch{
+    display:inline-flex; background:var(--paper-2); border-radius:10px; padding:3px;
+    margin-bottom:14px; gap:2px;
+  }
+  .view-switch button{
+    border:none; background:none; padding:7px 16px; font-size:11.5px;
+    font-family:'Space Grotesk',sans-serif; font-weight:600; color:var(--muted);
+    border-radius:8px; cursor:pointer;
+  }
+  .view-switch button.active{ background:var(--ink); color:var(--paper); }
+
+  .view-pane{display:none;}
+  .view-pane.active{display:block;}
+
+  .kanban{
+    display:grid;
+    grid-template-columns:repeat(5, minmax(150px,1fr));
+    gap:10px;
+    overflow-x:auto;
+    padding-bottom:6px;
+  }
+  .kanban-col{
+    background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:10px; min-height:80px;
+  }
+  .kanban-col-head{
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:8px; padding-bottom:6px; border-bottom:2px solid var(--kcolor,var(--line));
+  }
+  .kanban-col-head b{font-size:10.5px; font-family:'Space Grotesk',sans-serif;}
+  .kanban-col-head span{
+    font-size:9px; font-family:'Space Grotesk',monospace; color:var(--muted);
+  }
+  .kanban-card{
+    background:var(--paper); border-radius:8px; padding:8px 9px; margin-bottom:7px;
+    border-left:3px solid var(--kcolor,var(--route));
+    font-size:11px;
+  }
+  .kanban-card b{display:block; font-size:11.5px; font-family:'Space Grotesk',sans-serif; margin-bottom:2px;}
+  .kanban-card .kmeta{color:var(--muted); font-size:10px;}
+  .kanban-empty{
+    font-size:10px; color:var(--muted); font-style:italic; text-align:center; padding:10px 4px;
+  }
+
+  .opp-list{display:flex; flex-direction:column; gap:8px;}
+  .opp-item{
+    background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:11px 13px; font-size:12px;
+  }
+  .opp-item-top{display:flex; justify-content:space-between; align-items:center;}
+  .opp-item-top b{font-family:'Space Grotesk',sans-serif; font-size:13px;}
+  .tag{
+    font-size:9.5px; padding:2px 8px; border-radius:20px;
+    font-family:'Space Grotesk',monospace; letter-spacing:.03em;
+    background:var(--route-soft); color:var(--route); white-space:nowrap;
+  }
+  .opp-item .sub{color:var(--muted); font-size:11px; margin-top:3px;}
+  .empty-pipeline{
+    font-size:12px; color:var(--muted); text-align:center; padding:20px 10px;
+    border:1px dashed var(--line); border-radius:12px;
+  }
+</style>
+</head>
+<body>
+
+<div class="lede">
+  <p class="eyebrow">Prototipo interactivo · Voz → Claude → Pipeline</p>
+  <h1>Bitácora Comercial</h1>
+  <p>Simulación de cómo un vendedor de Comercial Argentina registra una oportunidad con una nota de voz apenas termina una reunión: Claude la estructura, repregunta lo que falta y la vuelca al CRM.</p>
+</div>
+
+<div class="phone">
+  <div class="notch"></div>
+  <div class="screen">
+
+    <div class="push">
+      <div class="pin">📍</div>
+      <div class="txt">
+        <b>Reunión finalizada</b> — Registrá la oportunidad antes de subirte a la camioneta.
+        <div class="time">Hace 2 min · Recordatorio automático</div>
+      </div>
+    </div>
+
+    <div class="rec-zone">
+      <button class="mic-btn" id="micBtn" onclick="toggleRecording()">🎙️</button>
+      <div class="mic-label" id="micLabel">Tocá para grabar la nota</div>
+      <div class="waveform" id="waveform">
+        <span style="animation-delay:0s"></span>
+        <span style="animation-delay:.1s"></span>
+        <span style="animation-delay:.2s"></span>
+        <span style="animation-delay:.15s"></span>
+        <span style="animation-delay:.3s"></span>
+        <span style="animation-delay:.05s"></span>
+        <span style="animation-delay:.25s"></span>
+      </div>
+    </div>
+
+    <div class="transcript-box placeholder" id="transcriptBox">
+      La transcripción de tu nota de voz va a aparecer acá…
+    </div>
+
+    <button class="manual-toggle" onclick="toggleManual()">¿No se activó el micrófono? Escribí o pegá la nota</button>
+    <div class="manual-area" id="manualArea">
+      <textarea id="manualText" placeholder="Ej: Vengo de reunión con Diego, jefe de mantenimiento en YPF Loma Campana. Necesitan inspección de líneas para agosto, ya les pasé precio de referencia, dijeron que lo ven con compras la semana que viene. Mencionaron que también están cotizando con otro proveedor..."></textarea>
+    </div>
+
+    <button class="primary-btn" id="processBtn" onclick="processWithClaude()" disabled>Procesar</button>
+    <div class="loading-line" id="loadingLine">Analizando la nota…</div>
+
+    <div class="opp-card" id="oppCard">
+      <h3>Oportunidad detectada — revisá y ajustá</h3>
+
+      <div class="field-row">
+        <div class="field"><label>Cliente</label><input id="f_cliente"></div>
+        <div class="field"><label>Contacto</label><input id="f_contacto"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Empresa / sector</label><input id="f_empresa"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Eje de servicio</label><input id="f_ejes" placeholder="Formación, Control Técnico…"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Servicio específico</label><input id="f_servicio" placeholder="Ej: Curso Espacios Confinados"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Monto estimado</label><input id="f_monto" type="number"></div>
+        <div class="field" style="max-width:80px;"><label>Moneda</label>
+          <select id="f_moneda"><option>USD</option><option>ARS</option></select>
+        </div>
+      </div>
+
+      <div class="route-stepper" id="routeStepper"></div>
+
+      <div class="score-row">
+        <div class="score-num" id="f_score">—</div>
+        <div class="score-txt">Probabilidad de cierre estimada por Claude según el tono y las señales de la conversación.</div>
+      </div>
+
+      <div class="list-block">
+        <h4>Próximos pasos</h4>
+        <ul id="f_pasos"></ul>
+      </div>
+      <div class="list-block alerts" id="alertBlock">
+        <h4>Alertas</h4>
+        <ul id="f_alertas"></ul>
+      </div>
+      <div class="resumen-box" id="f_resumen"></div>
+
+      <div class="list-block" id="repreguntasBlock" style="display:none;">
+        <h4>Antes de guardar — completá esto</h4>
+        <div id="repreguntasList"></div>
+      </div>
+
+      <button class="primary-btn ghost" style="margin-top:14px;" onclick="saveOpportunity()">Guardar en el pipeline</button>
+    </div>
+
+  </div>
+</div>
+
+<div class="pipeline">
+  <div class="pipeline-head">
+    <h2>CRM — Oportunidades</h2>
+  </div>
+
+  <div class="stat-grid" id="statGrid"></div>
+
+  <div class="view-switch">
+    <button class="active" id="btnViewList" onclick="setView('list')">Lista</button>
+    <button id="btnViewBoard" onclick="setView('board')">Tablero</button>
+  </div>
+
+  <div class="view-pane active" id="paneList">
+    <div id="donutRow"></div>
+    <div class="opp-list" id="oppList">
+      <div class="empty-pipeline">Todavía no guardaste ninguna oportunidad.</div>
+    </div>
+  </div>
+
+  <div class="view-pane" id="paneBoard">
+    <div class="kanban" id="kanbanBoard"></div>
+  </div>
+</div>
+
+<script>
+const ETAPAS = ["Prospección","Calificación","Propuesta","Negociación","Cierre"];
+const ETAPA_COLORS = {
+  "Prospección":"#8B8574", "Calificación":"#5C7A6E", "Propuesta":"#2F6F62",
+  "Negociación":"#A87C2E", "Cierre":"#D65A2C"
+};
+
+let recognition = null;
+let recording = false;
+let finalTranscript = "";
+let currentExtracted = null;
+let opportunities = [];
+
+// ---------- Speech recognition ----------
+function initRecognition(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR) return null;
+  const r = new SR();
+  r.lang = 'es-AR';
+  r.continuous = true;
+  r.interimResults = true;
+  r.onresult = (e) => {
+    let interim = "";
+    for(let i = e.resultIndex; i < e.results.length; i++){
+      const t = e.results[i][0].transcript;
+      if(e.results[i].isFinal) finalTranscript += t + " ";
+      else interim += t;
+    }
+    renderTranscript(finalTranscript + interim);
+  };
+  r.onerror = () => {
+    setMicLabel("No se pudo acceder al micrófono acá — usá el campo de texto de abajo.");
+    stopRecordingUI();
+  };
+  r.onend = () => { if(recording) stopRecordingUI(); };
+  return r;
+}
+
+function toggleRecording(){
+  if(!recognition) recognition = initRecognition();
+  if(!recognition){
+    setMicLabel("Este navegador no soporta dictado — usá el campo de texto.");
+    toggleManual(true);
+    return;
+  }
+  if(!recording){
+    finalTranscript = "";
+    try{
+      recognition.start();
+      recording = true;
+      document.getElementById('micBtn').classList.add('recording');
+      document.getElementById('waveform').classList.add('active');
+      setMicLabel("Escuchando… tocá de nuevo para terminar");
+    }catch(err){
+      setMicLabel("No se pudo iniciar la grabación — usá el campo de texto.");
+    }
+  } else {
+    recognition.stop();
+    stopRecordingUI();
+  }
+}
+
+function stopRecordingUI(){
+  recording = false;
+  document.getElementById('micBtn').classList.remove('recording');
+  document.getElementById('waveform').classList.remove('active');
+  setMicLabel("Tocá para grabar de nuevo, o revisá el texto");
+  checkEnableProcess();
+}
+
+function setMicLabel(txt){ document.getElementById('micLabel').textContent = txt; }
+
+function renderTranscript(txt){
+  const box = document.getElementById('transcriptBox');
+  if(txt.trim().length === 0){
+    box.textContent = "La transcripción de tu nota de voz va a aparecer acá…";
+    box.classList.add('placeholder');
+  } else {
+    box.textContent = txt;
+    box.classList.remove('placeholder');
+  }
+  checkEnableProcess();
+}
+
+function toggleManual(forceOpen){
+  const area = document.getElementById('manualArea');
+  if(forceOpen) area.classList.add('open');
+  else area.classList.toggle('open');
+}
+
+document.getElementById('manualText').addEventListener('input', checkEnableProcess);
+
+function checkEnableProcess(){
+  const manual = document.getElementById('manualText').value.trim();
+  const has = finalTranscript.trim().length > 0 || manual.length > 0;
+  document.getElementById('processBtn').disabled = !has;
+}
+
+// ---------- Claude processing ----------
+async function processWithClaude(){
+  const manual = document.getElementById('manualText').value.trim();
+  const transcript = manual.length > 0 ? manual : finalTranscript.trim();
+  if(!transcript) return;
+
+  document.getElementById('loadingLine').classList.add('show');
+  document.getElementById('processBtn').disabled = true;
+
+  try{
+    const response = await fetch("/api/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ transcript })
+    });
+    if(!response.ok){
+      const errBody = await response.json().catch(()=>({}));
+      throw new Error(errBody.error || `HTTP ${response.status}`);
+    }
+    const parsed = await response.json();
+    currentExtracted = parsed;
+    renderExtractedCard(parsed);
+  }catch(err){
+    console.error("Error al procesar:", err);
+    document.getElementById('loadingLine').textContent = "No se pudo procesar la nota. Reintentá.";
+    setTimeout(()=>{ document.getElementById('loadingLine').classList.remove('show'); document.getElementById('loadingLine').textContent="Analizando la nota…"; }, 2500);
+    document.getElementById('processBtn').disabled = false;
+    return;
+  }
+  document.getElementById('loadingLine').classList.remove('show');
+  document.getElementById('processBtn').disabled = false;
+}
+
+function renderExtractedCard(d){
+  document.getElementById('f_cliente').value = d.cliente || "";
+  document.getElementById('f_contacto').value = d.contacto || "";
+  document.getElementById('f_empresa').value = d.empresa_sector || "";
+  document.getElementById('f_ejes').value = (d.ejes_servicio || []).join(", ");
+  document.getElementById('f_servicio').value = d.servicio_especifico || "";
+  document.getElementById('f_monto').value = d.monto_estimado || 0;
+  document.getElementById('f_moneda').value = d.moneda || "USD";
+  document.getElementById('f_score').textContent = (d.probabilidad_cierre || 0) + "%";
+
+  const rqBlock = document.getElementById('repreguntasBlock');
+  const rqList = document.getElementById('repreguntasList');
+  const repreguntas = d.repreguntas || [];
+  if(repreguntas.length){
+    rqBlock.style.display = 'block';
+    rqList.innerHTML = repreguntas.map((r,i) => `
+      <div class="repregunta-item">
+        <span class="rq-tag">${escapeHtml(r.categoria || 'A confirmar')}</span>
+        <div class="rq-q">${escapeHtml(r.pregunta || '')}</div>
+        <input data-rq="${i}" data-pregunta="${escapeHtml(r.pregunta || '')}" placeholder="Respuesta rápida (opcional)">
+      </div>
+    `).join('');
+  } else {
+    rqBlock.style.display = 'none';
+    rqList.innerHTML = '';
+  }
+
+  renderStepper(d.etapa);
+
+  const pasosEl = document.getElementById('f_pasos');
+  pasosEl.innerHTML = (d.proximos_pasos || []).map(p => `<li>${escapeHtml(p)}</li>`).join('');
+
+  const alertasEl = document.getElementById('f_alertas');
+  const alertBlock = document.getElementById('alertBlock');
+  if(d.alertas && d.alertas.length){
+    alertBlock.classList.remove('empty');
+    alertasEl.innerHTML = d.alertas.map(a => `<li>${escapeHtml(a)}</li>`).join('');
+  } else {
+    alertBlock.classList.add('empty');
+    alertasEl.innerHTML = `<li>Sin señales de riesgo detectadas.</li>`;
+  }
+
+  document.getElementById('f_resumen').textContent = d.resumen || "";
+  document.getElementById('oppCard').classList.add('show');
+  document.getElementById('oppCard').scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+let selectedEtapa = "Prospección";
+function renderStepper(etapa){
+  selectedEtapa = ETAPAS.includes(etapa) ? etapa : "Prospección";
+  const idx = ETAPAS.indexOf(selectedEtapa);
+  const el = document.getElementById('routeStepper');
+  el.innerHTML = ETAPAS.map((e,i) => `
+    <button class="route-step ${i < idx ? 'done' : ''} ${i === idx ? 'current' : ''}" onclick="setEtapa('${e}')">
+      <div class="route-dot"></div>
+      <span>${e}</span>
+    </button>
+  `).join('');
+}
+function setEtapa(e){ renderStepper(e); }
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ---------- Save & pipeline ----------
+function saveOpportunity(){
+  const aclaraciones = Array.from(document.querySelectorAll('#repreguntasList input'))
+    .map(inp => ({ pregunta: inp.dataset.pregunta, respuesta: inp.value.trim() }))
+    .filter(a => a.respuesta.length > 0);
+
+  const opp = {
+    id: Date.now(),
+    cliente: document.getElementById('f_cliente').value || "Sin nombre",
+    contacto: document.getElementById('f_contacto').value,
+    empresa_sector: document.getElementById('f_empresa').value,
+    ejes_servicio: document.getElementById('f_ejes').value.split(',').map(s=>s.trim()).filter(Boolean),
+    servicio_especifico: document.getElementById('f_servicio').value,
+    monto_estimado: parseFloat(document.getElementById('f_monto').value) || 0,
+    moneda: document.getElementById('f_moneda').value,
+    etapa: selectedEtapa,
+    probabilidad_cierre: currentExtracted ? currentExtracted.probabilidad_cierre : 0,
+    proximos_pasos: currentExtracted ? currentExtracted.proximos_pasos : [],
+    resumen: document.getElementById('f_resumen').textContent,
+    aclaraciones
+  };
+  opportunities.push(opp);
+  renderPipeline();
+  resetCaptureFlow();
+}
+
+function resetCaptureFlow(){
+  finalTranscript = "";
+  document.getElementById('manualText').value = "";
+  renderTranscript("");
+  document.getElementById('oppCard').classList.remove('show');
+  document.getElementById('processBtn').disabled = true;
+  document.getElementById('repreguntasBlock').style.display = 'none';
+  document.getElementById('repreguntasList').innerHTML = '';
+  currentExtracted = null;
+}
+
+let currentView = 'list';
+function setView(v){
+  currentView = v;
+  document.getElementById('btnViewList').classList.toggle('active', v==='list');
+  document.getElementById('btnViewBoard').classList.toggle('active', v==='board');
+  document.getElementById('paneList').classList.toggle('active', v==='list');
+  document.getElementById('paneBoard').classList.toggle('active', v==='board');
+}
+
+function toUSD(o){ return o.moneda === 'USD' ? o.monto_estimado : o.monto_estimado/1000; }
+
+function renderPipeline(){
+  renderStats();
+  renderListPane();
+  renderKanban();
+}
+
+function renderStats(){
+  const statEl = document.getElementById('statGrid');
+  const n = opportunities.length;
+  const total = opportunities.reduce((s,o)=> s + toUSD(o), 0);
+  const weighted = opportunities.reduce((s,o)=> s + toUSD(o) * ((o.probabilidad_cierre||0)/100), 0);
+  const avgProb = n ? Math.round(opportunities.reduce((s,o)=> s + (o.probabilidad_cierre||0), 0) / n) : 0;
+
+  statEl.innerHTML = `
+    <div class="stat-card"><div class="num">${n}</div><div class="lbl">Oportunidades</div></div>
+    <div class="stat-card gold"><div class="num">${Math.round(total).toLocaleString('es-AR')}</div><div class="lbl">Pipeline USD</div></div>
+    <div class="stat-card gold"><div class="num">${Math.round(weighted).toLocaleString('es-AR')}</div><div class="lbl">Ponderado USD</div></div>
+    <div class="stat-card"><div class="num">${avgProb}%</div><div class="lbl">Cierre prom.</div></div>
+  `;
+}
+
+function renderListPane(){
+  const listEl = document.getElementById('oppList');
+  const donutEl = document.getElementById('donutRow');
+
+  if(opportunities.length === 0){
+    listEl.innerHTML = `<div class="empty-pipeline">Todavía no guardaste ninguna oportunidad.</div>`;
+    donutEl.innerHTML = "";
+    return;
+  }
+
+  const byEtapa = {};
+  ETAPAS.forEach(e => byEtapa[e] = 0);
+  opportunities.forEach(o => byEtapa[o.etapa] = (byEtapa[o.etapa]||0) + 1);
+
+  donutEl.innerHTML = `<div class="donut-row">${drawDonut(byEtapa)}<div class="legend">${
+    ETAPAS.filter(e=>byEtapa[e]>0).map(e => `<div><span class="dot" style="background:${ETAPA_COLORS[e]}"></span>${e} · ${byEtapa[e]}</div>`).join('')
+  }</div></div>`;
+
+  listEl.innerHTML = opportunities.slice().reverse().map(o => `
+    <div class="opp-item">
+      <div class="opp-item-top">
+        <b>${escapeHtml(o.cliente)}</b>
+        <span class="tag" style="background:${ETAPA_COLORS[o.etapa]}22; color:${ETAPA_COLORS[o.etapa]}">${o.etapa}</span>
+      </div>
+      <div class="sub">${escapeHtml((o.ejes_servicio||[]).join(' · ') || o.empresa_sector || '')} ${o.contacto ? '· ' + escapeHtml(o.contacto) : ''}</div>
+      <div class="sub">${o.moneda} ${Number(o.monto_estimado).toLocaleString('es-AR')} · ${o.probabilidad_cierre || 0}% prob. ${o.aclaraciones && o.aclaraciones.length ? ' · 📝 ' + o.aclaraciones.length + ' aclaración(es)' : ''}</div>
+    </div>
+  `).join('');
+}
+
+function renderKanban(){
+  const board = document.getElementById('kanbanBoard');
+  board.innerHTML = ETAPAS.map(etapa => {
+    const items = opportunities.filter(o => o.etapa === etapa);
+    const subtotal = items.reduce((s,o)=> s + toUSD(o), 0);
+    const color = ETAPA_COLORS[etapa];
+    const cardsHtml = items.length
+      ? items.slice().reverse().map(o => `
+          <div class="kanban-card" style="--kcolor:${color}">
+            <b>${escapeHtml(o.cliente)}</b>
+            <div class="kmeta">${escapeHtml(o.servicio_especifico || (o.ejes_servicio||[]).join(', ') || '')}</div>
+            <div class="kmeta">${o.moneda} ${Number(o.monto_estimado).toLocaleString('es-AR')} · ${o.probabilidad_cierre||0}%</div>
+          </div>
+        `).join('')
+      : `<div class="kanban-empty">Sin oportunidades</div>`;
+    return `
+      <div class="kanban-col">
+        <div class="kanban-col-head" style="--kcolor:${color}">
+          <b>${etapa}</b>
+          <span>${items.length} · $${Math.round(subtotal).toLocaleString('es-AR')}</span>
+        </div>
+        ${cardsHtml}
+      </div>
+    `;
+  }).join('');
+}
+
+function drawDonut(byEtapa){
+  const total = Object.values(byEtapa).reduce((a,b)=>a+b,0);
+  if(total === 0) return "";
+  const r = 30, cx = 40, cy = 40, circ = 2 * Math.PI * r;
+  let offset = 0;
+  let paths = "";
+  ETAPAS.forEach(e => {
+    const val = byEtapa[e];
+    if(val === 0) return;
+    const frac = val / total;
+    const dash = frac * circ;
+    paths += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${ETAPA_COLORS[e]}" stroke-width="12"
+      stroke-dasharray="${dash} ${circ - dash}" stroke-dashoffset="${-offset}" transform="rotate(-90 ${cx} ${cy})"/>`;
+    offset += dash;
+  });
+  return `<svg width="80" height="80" viewBox="0 0 80 80">${paths}
+    <text x="40" y="44" text-anchor="middle" font-family="Space Grotesk, monospace" font-size="15" font-weight="600" fill="var(--ink)">${total}</text>
+  </svg>`;
+}
+
+renderPipeline();
+</script>
+</body>
+</html>
