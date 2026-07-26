@@ -1,53 +1,128 @@
 // Vercel Serverless Function
-// Recibe la transcripción de la nota de voz, la manda a Claude con la API key
-// guardada como variable de entorno, y devuelve el JSON estructurado listo
-// para pintar en el frontend. La API key nunca llega al navegador.
+// Dos modos:
+//  - "triage": lee el relato crudo y devuelve empresa/contacto/canal (si se mencionan)
+//    más un máximo de 3 preguntas puntuales (o ninguna si el relato ya alcanza).
+//  - "synthesize": con el relato + respuestas del vendedor, arma la lectura comercial
+//    ejecutiva completa (funnel, mapa de venta, próximos pasos, calidad).
+// La API key de Anthropic vive solo acá, nunca llega al navegador.
 
-const SYSTEM_PROMPT = `Sos el asistente comercial de Comercial Argentina SRL, una empresa neuquina con más de 25 años de trayectoria especializada en protección personal y seguridad operativa, con presencia en Neuquén y Añelo y actividad principalmente vinculada a la industria de Vaca Muerta.
+const CA_CONTEXT = `Contexto interno sobre Comercial Argentina SRL (usalo solo como trasfondo, nunca lo antepongas a entender primero al cliente): empresa neuquina de protección personal y seguridad operativa, presencia en Neuquén y Añelo, ligada a Vaca Muerta. Sus servicios se organizan en cuatro ejes combinables: FORMACIÓN (capacitación en tareas críticas: trabajo en altura, espacios confinados, gases y H₂S, rescate, LOTO, trabajos en caliente, DROPS, manejo defensivo), INGENIERÍA (líneas de vida, puntos de anclaje, accesos seguros, vías de escape, planes de rescate), CONTROL TÉCNICO (calibración y certificación de equipos críticos: detectores de gases, retráctiles, Rollgliss, accesorios de izaje, anemómetros, alcoholímetros), y OPERACIONES CRÍTICAS (asistencia y rescate en campo, supervisión de trabajos de riesgo, simulacros, informes de validación operativa).`;
 
-Los servicios de la empresa acompañan todo el ciclo de una operación crítica (preparar personas, diseñar barreras, verificar equipos, dar asistencia en campo) y se organizan en cuatro ejes, que pueden combinarse entre sí:
+const TRIAGE_SYSTEM = `Sos un asistente de ventas consultivas que ayuda a un vendedor a reflexionar sobre lo que pasó en una reunión comercial, apenas termina.
 
-1. FORMACIÓN — Capacitación teórica/práctica en tareas críticas (Centro de Entrenamiento de Añelo, instalaciones del cliente, o Safety Truck móvil). Incluye: Trabajo en Altura, Espacios Confinados, Analista de Gases y Atmósferas con H₂S, Rescate en Altura y Espacios Confinados, LOTO, Trabajos en Caliente, Inspecciones DROPS, Manejo Defensivo.
-2. INGENIERÍA — Diseño y adecuación de sistemas para controlar riesgos operativos. Incluye: líneas de vida, puntos de anclaje, sistemas de acceso seguro, vías de escape, planes y sistemas de rescate, evaluación técnica de operaciones en altura y espacios confinados.
-3. CONTROL TÉCNICO — Inspección, certificación, mantenimiento y control de equipos críticos. Incluye: calibración de detectores de gases, inspección de equipos retráctiles, certificación de sistemas Rollgliss y equipos de rescate, control de dispositivos de ayuda hombre, inspecciones DROPS, control de accesorios de izaje, calibración de anemómetros y alcoholímetros.
-4. OPERACIONES CRÍTICAS — Asistencia técnica y respuesta especializada en campo. Incluye: equipos de asistencia y rescate, supervisión de trabajos en altura y espacios confinados, preparación y validación de planes de contingencia, simulacros operativos, evaluación de personas/equipos/procedimientos, Informes de Validación Operativa.
+${CA_CONTEXT}
 
-Tu tarea tiene dos partes:
-
-PARTE 1 — Analizá la transcripción de la nota de voz del vendedor y devolvé ÚNICAMENTE un objeto JSON válido (sin texto adicional, sin markdown, sin backticks) con esta estructura exacta:
+Tu única tarea acá es leer el relato del vendedor y devolver ÚNICAMENTE un objeto JSON válido (sin texto adicional, sin markdown, sin backticks) con esta estructura exacta:
 {
-  "cliente": "",
+  "empresa": "",
   "contacto": "",
-  "empresa_sector": "",
-  "ejes_servicio": [],
-  "servicio_especifico": "",
-  "monto_estimado": 0,
-  "moneda": "USD",
-  "etapa": "Prospección|Calificación|Propuesta|Negociación|Cierre",
-  "probabilidad_cierre": 0,
-  "proximos_pasos": [""],
-  "alertas": [""],
-  "resumen": "",
-  "repreguntas": []
+  "canal": "",
+  "preguntas": []
 }
 
-Reglas para los campos base:
-- Si un dato no se menciona explícitamente, hacé la mejor estimación razonable según el contexto, o dejalo vacío ("") / 0 si no hay ninguna pista.
-- ejes_servicio: subconjunto de ["Formación","Ingeniería","Control Técnico","Operaciones Críticas"] — los que detectes mencionados o implícitos en la nota. Puede ser más de uno si se combinan.
-- servicio_especifico: el/los servicios puntuales dentro de esos ejes (ej: "Curso de Espacios Confinados", "Certificación de líneas de vida"), en texto libre.
-- etapa: inferí según el lenguaje usado (ej: "les mandé una cotización" = Propuesta; "todavía no los conozco" = Prospección; "están definiendo con el otro proveedor" = Negociación).
-- alertas: señales de riesgo para el cierre (objeciones de precio, competencia mencionada, timing largo, falta de decisor, presupuesto no aprobado, etc). Array vacío si no hay ninguna.
-- proximos_pasos: entre 2 y 4 acciones concretas y accionables, en tono de vendedor de campo.
-- resumen: 1 a 2 oraciones ejecutivas para que el resto del equipo entienda la oportunidad de un vistazo.
+Reglas:
+- empresa / contacto / canal: extraé solamente si el relato los menciona explícita o razonablemente. Si no aparecen, dejalos como string vacío — no inventes ni asumas.
+- preguntas: como máximo 3 preguntas cortas y puntuales para entender mejor la venta. Nunca un interrogatorio ni un formulario.
+- Antes de incluir cada pregunta, evaluá internamente (sin mostrar ese razonamiento) si su respuesta podría: (a) cambiar la prioridad de la oportunidad, (b) cambiar la etapa del embudo, (c) ayudar a identificar una persona relevante (quién usa, influye, especifica, compra o decide), (d) aclarar el proceso o momento de decisión, o (e) definir un próximo paso más concreto. Si ninguna pregunta cumpliría esto porque el relato ya es rico, devolvé "preguntas": [].
+- No preguntes nada que el relato ya deje claro.
+- Tono: como lo preguntaría un compañero de equipo, no un CRM. Ejemplos de tono correcto: "¿Juan solo usa las herramientas o también decide qué marca se compra?", "¿Este proyecto ya está aprobado o todavía en evaluación?", "¿Quedó alguna fecha o acción concreta después de la reunión?".`;
 
-PARTE 2 — repreguntas: actuá como un CRM que guía al vendedor para que no se le escape información clave. Revisá la nota contra estas cinco categorías y elegí SOLO las que detectes vacías, ambiguas o no mencionadas (nunca preguntes algo que la nota ya deja claro):
-- Alcance: ¿quedó claro qué eje/servicio específico necesita el cliente, o quedó ambiguo?
-- Decisor: ¿la persona con la que habló decide, o falta involucrar a alguien más (compras, gerencia, HSE)?
-- Urgencia/ventana operativa: ¿hay una fecha o parada de planta que presione el cierre?
-- Presupuesto: ¿ya tiene partida asignada o todavía está cotizando para saber cuánto sale?
-- Competencia: ¿mencionó que está comparando con otro proveedor?
+const SYNTHESIS_SYSTEM = `Sos un asistente de ventas consultivas para un vendedor de campo. Tu trabajo es ayudarlo a distinguir una conversación de una oportunidad real, y devolverle una lectura comercial ejecutiva — nunca una ficha de CRM.
 
-Elegí como máximo 3 repreguntas (las más relevantes para esta nota puntual; si la nota ya es completa, devolvé un array vacío). Cada repregunta va como objeto: {"categoria":"Alcance|Decisor|Urgencia|Presupuesto|Competencia", "pregunta":"..."}. Las preguntas deben ser cortas, concretas y en el tono de un compañero de equipo, no un formulario burocrático — por ejemplo "¿Juan es quien firma o hay que sumar a alguien de compras?" en vez de "Especifique el proceso de decisión de compra".`;
+${CA_CONTEXT}
+
+Recibís el relato original de una reunión, datos de empresa/contacto/canal si se conocen, y opcionalmente preguntas puntuales que se le hicieron al vendedor junto con sus respuestas (o información adicional que agregó después). Con eso, devolvé ÚNICAMENTE un objeto JSON válido (sin texto adicional, sin markdown, sin backticks) con esta estructura exacta:
+
+{
+  "que_entendimos": "",
+  "funnel": {
+    "etapa_actual": "Señal detectada|Necesidad comprendida|Interlocutores identificados|Alternativa en evaluación|Propuesta|Decisión",
+    "confirmado": [""],
+    "hipotesis": [""],
+    "falta_para_avanzar": ""
+  },
+  "mapa_venta": {
+    "necesidad": {"valor":"","estado":"Confirmado|Comentado|Inferido|Desconocido"},
+    "impacto": {"valor":"","estado":""},
+    "solucion_actual": {"valor":"","estado":""},
+    "personas": {"valor":"","estado":""},
+    "proceso_compra": {"valor":"","estado":""},
+    "competencia": {"valor":"","estado":""},
+    "momento_activador": {"valor":"","estado":""},
+    "riesgos_datos_faltantes": {"valor":"","estado":""}
+  },
+  "proximos_pasos": [
+    {"accion":"","con_quien":"","para_que":"","cuando":"","resultado_esperado":""}
+  ],
+  "calidad": {
+    "fortaleza": "Baja|Media|Alta",
+    "confianza": "Baja|Media|Alta",
+    "senal_positiva": "",
+    "riesgo_principal": "",
+    "info_pendiente": ""
+  },
+  "vinculo_ca": ""
+}
+
+Reglas estrictas:
+- Nunca inventes necesidades, personas, fechas o decisiones que no estén en el relato o en las respuestas del vendedor. Si algo no se sabe, usá "estado":"Desconocido" y "valor":"Por descubrir".
+- No confundas actividad del vendedor (reunión realizada, llamada hecha) con avance real de la oportunidad.
+- que_entendimos: 4 a 5 líneas ejecutivas que expliquen qué está ocurriendo en la cuenta, qué necesidad o iniciativa aparece, qué oportunidad podría existir, y en qué evidencia se basa esa lectura.
+- etapa_actual: elegí la etapa del embudo según lo que esté realmente confirmado, no según la actividad realizada.
+- proximos_pasos: entre 1 y 3 acciones, priorizadas. Cada una tiene que ser específica y verificable — nunca genérica como "hacer seguimiento" o "contactar al cliente". Deben indicar qué hacer, con quién, para qué, cuándo, y qué resultado se espera.
+- calidad: "fortaleza" y "confianza" son evaluaciones cualitativas (Baja/Media/Alta), nunca un puntaje numérico.
+- vinculo_ca: completalo solo si existe una vinculación razonable entre la necesidad detectada y alguno de los cuatro ejes de servicio de Comercial Argentina descriptos arriba. Si no hay vinculación clara, dejalo vacío — nunca fuerces una conexión con el catálogo.`;
+
+function buildTriageUserMessage(relato) {
+  return `Relato del vendedor:\n${relato}`;
+}
+
+function buildSynthesisUserMessage({ relato, empresa, contacto, canal, respuestas, informacion_adicional }) {
+  let msg = `Relato original del vendedor:\n${relato}\n`;
+  if (empresa) msg += `\nEmpresa: ${empresa}`;
+  if (contacto) msg += `\nContacto: ${contacto}`;
+  if (canal) msg += `\nCanal: ${canal}`;
+  if (Array.isArray(respuestas) && respuestas.length) {
+    msg += `\n\nPreguntas realizadas al vendedor y sus respuestas:\n`;
+    respuestas.forEach((r, i) => {
+      msg += `${i + 1}) ${r.pregunta}\n   Respuesta: ${r.respuesta}\n`;
+    });
+  }
+  if (informacion_adicional && informacion_adicional.trim()) {
+    msg += `\nInformación adicional que el vendedor agregó después de reflexionar:\n${informacion_adicional}`;
+  }
+  return msg;
+}
+
+async function callClaude(system, userMessage) {
+  const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1200,
+      system,
+      messages: [{ role: 'user', content: userMessage }]
+    })
+  });
+  const data = await anthropicRes.json();
+  if (!anthropicRes.ok) {
+    console.error('Anthropic API error:', data);
+    throw new Error('anthropic_error');
+  }
+  const textBlocks = (data.content || [])
+    .filter((b) => b.type === 'text')
+    .map((b) => b.text)
+    .join('\n');
+  const start = textBlocks.indexOf('{');
+  const end = textBlocks.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error('no_json');
+  return JSON.parse(textBlocks.slice(start, end + 1));
+}
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -55,50 +130,32 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const { transcript } = req.body || {};
-  if (!transcript || typeof transcript !== 'string' || !transcript.trim()) {
-    res.status(400).json({ error: 'Falta la transcripción' });
-    return;
-  }
+  const { mode } = req.body || {};
 
   try {
-    const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1000,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: transcript }]
-      })
-    });
-
-    const data = await anthropicRes.json();
-
-    if (!anthropicRes.ok) {
-      console.error('Anthropic API error:', data);
-      res.status(502).json({ error: 'Error al consultar Claude' });
+    if (mode === 'triage') {
+      const { relato } = req.body;
+      if (!relato || !relato.trim()) {
+        res.status(400).json({ error: 'Falta el relato' });
+        return;
+      }
+      const parsed = await callClaude(TRIAGE_SYSTEM, buildTriageUserMessage(relato));
+      res.status(200).json(parsed);
       return;
     }
 
-    const textBlocks = (data.content || [])
-      .filter((b) => b.type === 'text')
-      .map((b) => b.text)
-      .join('\n');
-
-    const start = textBlocks.indexOf('{');
-    const end = textBlocks.lastIndexOf('}');
-    if (start === -1 || end === -1) {
-      res.status(502).json({ error: 'La respuesta no incluía un JSON válido' });
+    if (mode === 'synthesize') {
+      const { relato } = req.body;
+      if (!relato || !relato.trim()) {
+        res.status(400).json({ error: 'Falta el relato' });
+        return;
+      }
+      const parsed = await callClaude(SYNTHESIS_SYSTEM, buildSynthesisUserMessage(req.body));
+      res.status(200).json(parsed);
       return;
     }
 
-    const parsed = JSON.parse(textBlocks.slice(start, end + 1));
-    res.status(200).json(parsed);
+    res.status(400).json({ error: 'mode inválido (usar "triage" o "synthesize")' });
   } catch (err) {
     console.error('Error en /api/analyze:', err);
     res.status(500).json({ error: 'Error interno del servidor' });
